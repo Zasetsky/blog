@@ -33,11 +33,10 @@ export const useCommentsStore = defineStore("commentsStore", {
     },
 
     // Добавление комментария
-    async addComment(articleId: string, text: string) {
+    async addComment(articleId: string, subject: string, body: string) {
       this.error = null;
       try {
-        const newComment = await commentsApi.addComment(articleId, text);
-        this.comments.push(newComment);
+        await commentsApi.addComment(articleId, subject, body);
       } catch (err) {
         this.error = "Ошибка при добавлении комментария.";
       }

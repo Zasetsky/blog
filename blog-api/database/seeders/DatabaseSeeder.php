@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class DatabaseSeeder extends Seeder
 {
@@ -11,9 +12,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([
-            ArticleSeeder::class,
-            ArticleTagSeeder::class,
-        ]);
+        if (DB::table('articles')->count() === 0) {
+            $this->call(ArticleSeeder::class);
+        }
+
+        if (DB::table('article_tag')->count() === 0) {
+            $this->call(ArticleTagSeeder::class);
+        }
     }
 }

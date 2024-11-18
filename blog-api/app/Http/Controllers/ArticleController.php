@@ -32,8 +32,15 @@ class ArticleController extends Controller
 	 */
 	public function index(): JsonResponse
 	{
-		$articles = $this->articleService->getArticlesWithRelations();
-		return response()->json($articles, 200);
+		$articles = $this->articleService->getArticlesWithTags();
+		return response()->json([
+			'data' => $articles->items(),
+			'pagination' => [
+				'current_page' => $articles->currentPage(),
+				'total_items' => $articles->total(),
+				'per_page' => $articles->perPage(),
+			],
+		], 200);
 	}
 
 	/**
@@ -44,7 +51,7 @@ class ArticleController extends Controller
 	 */
 	public function show(string $id): JsonResponse
 	{
-		$article = $this->articleService->getArticleByIdWithRelations($id);
+		$article = $this->articleService->getArticleByIdWithTags($id);
 		return response()->json($article, 200);
 	}
 }

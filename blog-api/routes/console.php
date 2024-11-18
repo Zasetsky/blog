@@ -8,4 +8,6 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote')->hourly();
 
-Schedule::command('sync:metrics')->everyFiveMinutes();
+Schedule::command('sync:metrics')
+    ->everyFiveMinutes()
+    ->environments(['local']);

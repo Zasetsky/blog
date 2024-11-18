@@ -5,16 +5,20 @@ export class CommentsApi {
   // Получение комментариев для статьи
   static async fetchComments(articleId: string): Promise<Comment[]> {
     const response = await httpClient.get<Comment[]>(
-      `/articles/${articleId}/comments`
+      `/articles/${articleId}/get-comments`
     );
     return response.data;
   }
 
   // Добавление комментария
-  static async addComment(articleId: string, text: string): Promise<Comment> {
+  static async addComment(
+    articleId: string,
+    subject: string,
+    body: string
+  ): Promise<Comment> {
     const response = await httpClient.post<Comment>(
       `/articles/${articleId}/comment`,
-      { text }
+      { subject, body }
     );
     return response.data;
   }

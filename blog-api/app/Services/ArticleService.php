@@ -3,21 +3,23 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Redis;
 use App\Models\Article;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Contracts\Pagination\Paginator;
 
 class ArticleService
 {
 	/**
 	 * Получить список статей с комментариями и тегами.
 	 *
-	 * @return Paginator
+	 * @return LengthAwarePaginator
 	 */
-	public function getArticlesWithRelations(): Paginator
+	public function getArticlesWithTags(): LengthAwarePaginator
 	{
-		$articles = Article::with(['tags'])->simplePaginate(10);
+		$articles = Article::with(['tags'])
+			->orderBy('created_at', 'desc') // Сортировка LIFO
+			->paginate(10);
 
 		foreach ($articles as $article) {
 			$article->likes_count += $this->getLikesFromRedis($article->id);
@@ -33,7 +35,7 @@ class ArticleService
 	 * @param string $id
 	 * @return Article
 	 */
-	public function getArticleByIdWithRelations(string $id): Article
+	public function getArticleByIdWithTags(string $id): Article
 	{
 		$article = Article::with(['tags'])->findOrFail($id);
 
@@ -44,31 +46,53 @@ class ArticleService
 	}
 
 	/**
-	 * Инкрементирует счётчик лайков в Redis.
+	 * Инкрементирует счётчик лайков в Redis и возвращает общую сумму с БД.
 	 *
 	 * @param string $articleId
-	 * @return void
+	 * @return int
 	 */
 	public function incrementLikes(string $articleId): int
 	{
-		$key = "article:{$articleId}:likes";
-		$likes = Redis::incr($key);
+		// Проверяем, существует ли статья
+		$article = Article::find($articleId);
 
-		return $likes;
+		if (!$article) {
+			Log::warning("Попытка увеличить лайки для несуществующей статьи: {$articleId}");
+			return 0;
+		}
+
+		// Если статья существует, инкрементируем лайки в Redis
+		$key = "article:{$articleId}:likes";
+		$likesRedis = Redis::incr($key);
+
+		$likesDb = $article->likes_count;
+
+		return $likesDb + $likesRedis;
 	}
 
 	/**
-	 * Инкрементирует счётчик просмотров в Redis.
+	 * Инкрементирует счётчик просмотров в Redis и возвращает общую сумму с БД.
 	 *
 	 * @param string $articleId
-	 * @return void
+	 * @return int
 	 */
 	public function incrementViews(string $articleId): int
 	{
-		$key = "article:{$articleId}:views";
-		$views = Redis::incr($key);
+		// Проверяем, существует ли статья
+		$article = Article::find($articleId);
 
-		return $views;
+		if (!$article) {
+			Log::warning("Попытка увеличить просмотры для несуществующей статьи: {$articleId}");
+			return 0;
+		}
+
+		// Если статья существует, инкрементируем просмотры в Redis
+		$key = "article:{$articleId}:views";
+		$viewsRedis = Redis::incr($key);
+
+		$viewsDb = $article->views_count;
+
+		return $viewsDb + $viewsRedis;
 	}
 
 	/**
@@ -105,16 +129,41 @@ class ArticleService
 		$viewKeys = Redis::keys("article:*:views");
 		$likeKeys = Redis::keys("article:*:likes");
 
+		// Получаем значения для всех ключей просмотров
+		$viewValues = [];
+		if (!empty($viewKeys)) {
+			$viewValues = array_combine($viewKeys, Redis::mget($viewKeys));
+		}
+
+		// Получаем значения для всех ключей лайков
+		$likeValues = [];
+		if (!empty($likeKeys)) {
+			$likeValues = array_combine($likeKeys, Redis::mget($likeKeys));
+		}
+
+		// Удаляем ключи в Redis с помощью pipeline
 		Redis::pipeline(function ($pipe) use ($viewKeys, $likeKeys) {
 			foreach ($viewKeys as $key) {
-				$this->syncSingleMetric($pipe, $key, 'views_count');
+				$pipe->del($key);
 			}
-
 			foreach ($likeKeys as $key) {
-				$this->syncSingleMetric($pipe, $key, 'likes_count');
+				$pipe->del($key);
 			}
 		});
+
+		// Синхронизируем метрики просмотров
+		foreach ($viewValues as $key => $value) {
+			$this->syncSingleMetric($key, 'views_count', (int) $value);
+			Log::info("Синхронизирован ключ: {$key} для views_count");
+		}
+
+		// Синхронизируем метрики лайков
+		foreach ($likeValues as $key => $value) {
+			$this->syncSingleMetric($key, 'likes_count', (int) $value);
+			Log::info("Синхронизирован ключ: {$key} для likes_count");
+		}
 	}
+
 
 	/**
 	 * Синхронизирует отдельную метрику из Redis в базу данных.
@@ -124,18 +173,21 @@ class ArticleService
 	 * @param string $field
 	 * @return void
 	 */
-	private function syncSingleMetric($pipe, string $key, string $field): void
+	private function syncSingleMetric(string $key, string $field, int $value): void
 	{
 		try {
 			$articleId = str_replace(['article:', ':views', ':likes'], '', $key);
-			$value = Redis::get($key);
 
 			if ($value > 0) {
 				Article::where('id', $articleId)->increment($field, $value);
-				$pipe->del($key); // Удаляем ключ после синхронизации
 			}
 		} catch (\Exception $e) {
-			Log::error("Ошибка синхронизации метрики {$field} для ключа {$key}: {$e->getMessage()}");
+			Log::error("Ошибка синхронизации метрики {$field} для ключа {$key}: {$e->getMessage()}", [
+				'key' => $key,
+				'field' => $field,
+				'value' => $value,
+				'trace' => $e->getTraceAsString(),
+			]);
 		}
 	}
 }

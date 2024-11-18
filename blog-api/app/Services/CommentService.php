@@ -4,9 +4,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\DTOs\CommentDTO;
+use App\Jobs\ProcessCommentJob;
 use App\Models\Comment;
-use Illuminate\Support\Facades\Log;
-use Exception;
 
 class CommentService
 {
@@ -18,22 +17,12 @@ class CommentService
 	 */
 	public function processCommentCreation(CommentDTO $dto): void
 	{
-		dispatch(function () use ($dto) {
-			try {
-				// Создаём комментарий
-				Comment::create([
-					'article_id' => $dto->articleId,
-					'subject' => $dto->subject,
-					'body' => $dto->body,
-				]);
-
-				// Имитация долгой операции
-				sleep(600);
-			} catch (Exception $e) {
-				// Логируем ошибку
-				Log::error("Ошибка при создании комментария для статьи с ID {$dto->articleId}: {$e->getMessage()}");
-			}
-		});
+		// Отправляем задачу в очередь
+		ProcessCommentJob::dispatch(
+			$dto->articleId,
+			$dto->subject,
+			$dto->body
+		);
 	}
 
 	/**

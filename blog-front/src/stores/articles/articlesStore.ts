@@ -1,29 +1,51 @@
 import { defineStore } from "pinia";
 import { articlesApi } from "@/services/modules/articlesApi";
 import { ArticlesState } from "./types/IArticlesStore";
+import { Tag } from "./types/IArticles";
 
 export const useArticlesStore = defineStore("articlesStore", {
   state: (): ArticlesState => ({
     articles: [],
-    pagination: null,
+    pagination: {
+      total_items: 0,
+      current_page: 1,
+      per_page: 10,
+    },
     articleDetails: null,
     loading: false,
     error: null,
   }),
 
+  getters: {
+    // Геттер для получения уникальных тегов
+    uniqueTags: (state): Tag[] => {
+      const tagsSet = new Map<string, Tag>();
+
+      state.articles.forEach((article) => {
+        article.tags.forEach((tag) => {
+          if (!tagsSet.has(tag.id)) {
+            tagsSet.set(tag.id, tag);
+          }
+        });
+      });
+
+      return Array.from(tagsSet.values());
+    },
+  },
+
   actions: {
     // Получение списка статей
-    async fetchArticles(page = 2) {
+    async fetchArticles() {
       this.error = null;
       try {
-        const response = await articlesApi.fetchArticles(page);
+        const response = await articlesApi.fetchArticles(
+          this.pagination.current_page
+        );
+
+        console.log(response);
 
         this.articles = response.data;
-        this.pagination = {
-          current_page: response.current_page,
-          per_page: response.per_page,
-          total: response.to,
-        };
+        this.pagination = response.pagination;
       } catch (err) {
         this.error = "Ошибка загрузки статей.";
       }

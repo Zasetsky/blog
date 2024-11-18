@@ -35,8 +35,14 @@ class SyncMetricsCommand extends Command
      */
     public function handle(): void
     {
-        $this->info('Начало синхронизации метрик...');
-        $this->articleService->syncToDatabase();
-        $this->info('Синхронизация завершена.');
+        \Log::info('Команда sync:metrics запущена.');
+        try {
+            $this->info('Начало синхронизации метрик...');
+            $this->articleService->syncToDatabase();
+            $this->info('Синхронизация завершена.');
+        } catch (\Exception $e) {
+            \Log::error("Ошибка при выполнении sync:metrics: " . $e->getMessage());
+            throw $e;
+        }
     }
 }
