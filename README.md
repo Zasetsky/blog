@@ -15,9 +15,15 @@
 2. **Запустите Docker Compose:**
 
 ```bash
-	docker-compose up --build
+	docker-compose up --build -d
 ```
 	
+3. **После создания контейнеров вы можете проследить за установкой зависимостей:**
+
+```bash
+	docker-compose logs -f
+```
+
 Приложение будет доступно по адресу: `http://localhost:8000`
 
 ## Режим разработки
