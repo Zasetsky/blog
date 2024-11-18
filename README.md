@@ -7,16 +7,16 @@
 1. **Клонируйте репозиторий:**
 
 
-	```bash
-		git clone https://github.com/Zasetsky/blog.git
-		cd blog
-	```
+```bash
+	git clone https://github.com/Zasetsky/blog.git
+	cd blog
+```
 
 2. **Запустите Docker Compose:**
 
-	```bash
-		docker-compose up --build
-	```
+```bash
+	docker-compose up --build
+```
 	
 Приложение будет доступно по адресу: `http://localhost:8000`
 
@@ -24,17 +24,17 @@
 
 ### Бэкенд:
 
-	```bash
-		cd blog-api
-		docker-compose up --build
-	```
+```bash
+	cd blog-api
+	docker-compose up --build
+```
 	
 ### Фронтенд:
 
-	```bash
-		cd blog-front
-		npm install
-		npm run serve
-	```
+```bash
+	cd blog-front
+	npm install
+	npm run serve
+```
 
 Фронтенд будет доступен по адресу: `http://localhost:8080`
